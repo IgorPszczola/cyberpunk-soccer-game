@@ -2,33 +2,265 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Cyber-Penalty Duel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tactical Penalty // Netrun</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #0d0221; color: #00ffcc; font-family: 'Courier New', Courier, monospace; }
-        .neon-border { border: 2px solid #00ffcc; box-shadow: 0 0 15px #00ffcc; }
-        .glitch { text-shadow: 2px 2px #ff0055; }
+        :root {
+            --bg-0: #05060d;
+            --bg-1: #0a1020;
+            --bg-2: #0f172f;
+            --cyan: #38bdf8;
+            --cyan-soft: rgba(56, 189, 248, 0.3);
+            --pink: #f472b6;
+            --red: #ef4444;
+            --ok: #22c55e;
+            --text: #d9f2ff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+            background:
+                radial-gradient(1100px 500px at 50% -10%, rgba(56, 189, 248, 0.12), transparent 60%),
+                linear-gradient(160deg, var(--bg-0) 0%, var(--bg-1) 48%, var(--bg-2) 100%);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(56, 189, 248, 0.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.06) 1px, transparent 1px);
+            background-size: 56px 56px;
+            opacity: 0.35;
+        }
+
+        body::after {
+            content: "";
+            position: fixed;
+            inset: -20% 0;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                180deg,
+                rgba(56, 189, 248, 0) 0,
+                rgba(56, 189, 248, 0) 16px,
+                rgba(56, 189, 248, 0.09) 17px,
+                rgba(56, 189, 248, 0) 19px
+            );
+            animation: streamPulse 4.5s linear infinite;
+            opacity: 0.28;
+        }
+
+        @keyframes streamPulse {
+            from { transform: translateY(-12px); }
+            to { transform: translateY(12px); }
+        }
+
+        .panel {
+            border: 1px solid var(--cyan-soft);
+            background: rgba(9, 15, 28, 0.75);
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.16);
+            backdrop-filter: blur(4px);
+        }
+
+        .glitch {
+            color: #e2f5ff;
+            text-shadow: 1px 0 var(--cyan), -1px 0 var(--pink);
+            animation: textGlitch 1.8s steps(2, end) infinite;
+        }
+
+        @keyframes textGlitch {
+            0%, 100% { text-shadow: 1px 0 var(--cyan), -1px 0 var(--pink); }
+            33% { text-shadow: -1px 0 var(--cyan), 1px 0 var(--pink); }
+            66% { text-shadow: 2px 0 var(--cyan), -2px 0 var(--pink); }
+        }
+
+        .tactical-arena {
+            position: relative;
+            width: min(94vw, 520px);
+            aspect-ratio: 1 / 1;
+            border: 1px solid rgba(56, 189, 248, 0.5);
+            border-radius: 14px;
+            overflow: hidden;
+            background:
+                linear-gradient(180deg, rgba(56, 189, 248, 0.07), rgba(56, 189, 248, 0.01)),
+                radial-gradient(circle at 50% 110%, rgba(244, 114, 182, 0.22), rgba(10, 16, 32, 0.02) 45%);
+        }
+
+        .tactical-arena::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                repeating-linear-gradient(0deg, rgba(56, 189, 248, 0.12) 0 1px, transparent 1px 34px),
+                repeating-linear-gradient(90deg, rgba(56, 189, 248, 0.12) 0 1px, transparent 1px 34px);
+            opacity: 0.45;
+        }
+
+        .grid-wrap {
+            position: absolute;
+            inset: 11%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 8px;
+            z-index: 3;
+        }
+
+        .node-btn {
+            border: 1px solid rgba(56, 189, 248, 0.85);
+            background: rgba(8, 17, 34, 0.55);
+            color: #c7ecff;
+            font-size: clamp(1rem, 4vw, 1.15rem);
+            font-weight: 700;
+            transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+        }
+
+        .node-btn:hover {
+            transform: translateY(-1px);
+            background: rgba(56, 189, 248, 0.16);
+            box-shadow: 0 0 14px rgba(56, 189, 248, 0.5);
+        }
+
+        .node-btn.ice-hit {
+            animation: iceBlock 360ms ease-out 2;
+            border-color: rgba(239, 68, 68, 0.95);
+        }
+
+        .node-btn.breach-hit {
+            animation: breachPulse 420ms ease-out;
+            border-color: rgba(244, 114, 182, 1);
+        }
+
+        .node-btn.defense-correct {
+            border-color: rgba(34, 197, 94, 1);
+            background: rgba(34, 197, 94, 0.24);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.9);
+            animation: defenseCorrectPulse 900ms ease-out;
+        }
+
+        .node-btn.defense-wrong {
+            border-color: rgba(239, 68, 68, 1);
+            background:
+                linear-gradient(145deg, rgba(239, 68, 68, 0.35), rgba(239, 68, 68, 0.12)),
+                repeating-linear-gradient(120deg, rgba(255, 255, 255, 0.35) 0 1px, transparent 1px 10px);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.9);
+            animation: defenseWrongShake 420ms ease-in-out 2;
+        }
+
+        @keyframes iceBlock {
+            0% { box-shadow: 0 0 0 rgba(239, 68, 68, 0); background: rgba(8, 17, 34, 0.55); }
+            40% { box-shadow: 0 0 18px rgba(239, 68, 68, 0.95); background: rgba(239, 68, 68, 0.35); }
+            100% { box-shadow: 0 0 0 rgba(239, 68, 68, 0); background: rgba(8, 17, 34, 0.55); }
+        }
+
+        @keyframes breachPulse {
+            0% { box-shadow: 0 0 0 rgba(244, 114, 182, 0); }
+            50% { box-shadow: 0 0 18px rgba(244, 114, 182, 0.95); }
+            100% { box-shadow: 0 0 0 rgba(244, 114, 182, 0); }
+        }
+
+        @keyframes defenseCorrectPulse {
+            0% { transform: scale(0.98); }
+            45% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes defenseWrongShake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-2px); }
+            40% { transform: translateX(2px); }
+            60% { transform: translateX(-2px); }
+            80% { transform: translateX(2px); }
+        }
+
+        .data-packet {
+            position: fixed;
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
+            background: var(--pink);
+            box-shadow: 0 0 10px var(--pink), 0 0 28px rgba(244, 114, 182, 0.85);
+            z-index: 120;
+            pointer-events: none;
+        }
+
+        .data-packet.fly {
+            animation: packetFlight 760ms cubic-bezier(0.16, 0.84, 0.2, 1) forwards;
+        }
+
+        @keyframes packetFlight {
+            0% { transform: translate(0, 0) scale(0.45); opacity: 0.5; }
+            55% { opacity: 1; }
+            100% { transform: translate(var(--dx), var(--dy)) scale(1.55); opacity: 1; }
+        }
+
+        .impact-splash {
+            position: fixed;
+            width: 16px;
+            height: 16px;
+            border-radius: 999px;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            z-index: 119;
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(0.2);
+            animation: splashRing 420ms ease-out forwards;
+        }
+
+        @keyframes splashRing {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(0.2); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(3.4); }
+        }
     </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen">
-    <h1 class="text-5xl font-bold mb-8 glitch tracking-widest">CYBER-PENALTY</h1>
-    
-    <div id="status-box" class="neon-border p-6 rounded-lg text-xl mb-4 w-80 text-center">
-        Connecting to neural link...
+<body class="flex flex-col items-center justify-center py-6">
+    <h1 class="text-3xl md:text-5xl font-bold mb-6 glitch tracking-widest text-center">TACTICAL PENALTY // NETRUN</h1>
+
+    <div id="status-box" class="panel p-4 rounded-lg text-sm md:text-base mb-4 w-[92vw] max-w-[520px] text-center">
+        <strong>Transmission Status:</strong> Establishing encrypted channel...
     </div>
 
-    <div id="game-ui" class="hidden">
-        <p id="role-display" class="text-2xl font-bold mb-4"></p>
-        <div class="grid grid-cols-3 gap-4 bg-gray-900 p-4 rounded-xl border border-pink-500">
-            <button onclick="sendMove(1)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
-            <button onclick="sendMove(2)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
-            <button onclick="sendMove(3)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
-            <button onclick="sendMove(4)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
-            <button onclick="sendMove(5)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
-            <button onclick="sendMove(6)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
-            <button onclick="sendMove(7)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
-            <button onclick="sendMove(8)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
-            <button onclick="sendMove(9)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
+    <div id="game-ui" class="hidden w-full flex flex-col items-center">
+        <p id="role-display" class="text-xl md:text-2xl font-bold mb-3"></p>
+
+        <div class="panel p-3 rounded-lg mb-4 text-center w-[92vw] max-w-[520px]">
+            <p id="round-display" class="text-sm md:text-base mb-1">Transmission Cycle: -</p>
+            <p id="score-display" class="text-sm md:text-base">Hacker Score: - | System Health: -</p>
+            <p id="target-display" class="text-xs md:text-sm text-sky-300">Target Breaches Required: -</p>
+        </div>
+
+        <div id="tactical-arena" class="tactical-arena">
+            <div class="grid-wrap">
+                <button onclick="sendMove(1)" class="node-btn glitch" data-zone="1">01</button>
+                <button onclick="sendMove(2)" class="node-btn glitch" data-zone="2">02</button>
+                <button onclick="sendMove(3)" class="node-btn glitch" data-zone="3">03</button>
+                <button onclick="sendMove(4)" class="node-btn glitch" data-zone="4">04</button>
+                <button onclick="sendMove(5)" class="node-btn glitch" data-zone="5">05</button>
+                <button onclick="sendMove(6)" class="node-btn glitch" data-zone="6">06</button>
+                <button onclick="sendMove(7)" class="node-btn glitch" data-zone="7">07</button>
+                <button onclick="sendMove(8)" class="node-btn glitch" data-zone="8">08</button>
+                <button onclick="sendMove(9)" class="node-btn glitch" data-zone="9">09</button>
+            </div>
+        </div>
+
+        <div id="rematch-panel" class="hidden panel p-4 rounded-lg mt-4 text-center w-[92vw] max-w-[520px]">
+            <p id="rematch-message" class="mb-3 text-sm md:text-base">Session complete. Re-open channel with same rival node?</p>
+            <div class="flex gap-3 justify-center">
+                <button id="rematch-yes" onclick="sendRematchVote(true)" class="px-4 py-2 border border-sky-400 hover:bg-sky-500/20">Accept</button>
+                <button id="rematch-no" onclick="sendRematchVote(false)" class="px-4 py-2 border border-rose-400 hover:bg-rose-500/20">Decline</button>
+            </div>
         </div>
     </div>
 
@@ -36,28 +268,257 @@
         const statusBox = document.getElementById('status-box');
         const gameUI = document.getElementById('game-ui');
         const roleDisplay = document.getElementById('role-display');
-        
+        const roundDisplay = document.getElementById('round-display');
+        const scoreDisplay = document.getElementById('score-display');
+        const targetDisplay = document.getElementById('target-display');
+        const rematchPanel = document.getElementById('rematch-panel');
+        const rematchMessage = document.getElementById('rematch-message');
+        const rematchYes = document.getElementById('rematch-yes');
+        const rematchNo = document.getElementById('rematch-no');
+        const arena = document.getElementById('tactical-arena');
+        const zoneButtons = Array.from(document.querySelectorAll('.node-btn'));
+
+        let hasSubmittedMove = false;
+        let isGameOver = false;
+        let rematchVoted = false;
+
         const socket = new WebSocket('ws://' + window.location.host + '/ws/game');
+
+        function setButtonsDisabled(disabled) {
+            zoneButtons.forEach((btn) => {
+                btn.disabled = disabled;
+                btn.classList.toggle('opacity-40', disabled);
+                btn.classList.toggle('cursor-not-allowed', disabled);
+            });
+        }
+
+        function markSelectedZone(zone) {
+            zoneButtons.forEach((btn) => {
+                const isSelected = Number(btn.dataset.zone) === zone;
+                btn.classList.toggle('ring-2', isSelected);
+                btn.classList.toggle('ring-sky-300', isSelected);
+            });
+        }
+
+        function clearSelectedZone() {
+            zoneButtons.forEach((btn) => {
+                btn.classList.remove('ring-2', 'ring-sky-300', 'ice-hit', 'breach-hit');
+            });
+        }
+
+        function clearOutcomeEffects() {
+            zoneButtons.forEach((btn) => {
+                btn.classList.remove('ice-hit', 'breach-hit', 'defense-correct', 'defense-wrong');
+            });
+        }
+
+        function getZoneButton(zone) {
+            return zoneButtons.find((btn) => Number(btn.dataset.zone) === Number(zone));
+        }
+
+        function setRole(role, message) {
+            roleDisplay.innerText = message;
+            roleDisplay.classList.remove('text-fuchsia-300', 'text-sky-300');
+            roleDisplay.classList.add(role === 'shooter' ? 'text-fuchsia-300' : 'text-sky-300');
+        }
+
+        function updateHud(data) {
+            if (typeof data.round === 'number') {
+                roundDisplay.innerText = `Transmission Cycle: ${data.round}`;
+            }
+            if (typeof data.your_score === 'number' && typeof data.opponent_score === 'number' && typeof data.target_score === 'number') {
+                const systemHealth = Math.max(0, data.target_score - data.opponent_score);
+                scoreDisplay.innerText = `Hacker Score: ${data.your_score} | System Health: ${systemHealth}`;
+            }
+            if (typeof data.target_score === 'number') {
+                targetDisplay.innerText = `Target Breaches Required: ${data.target_score}`;
+            }
+        }
+
+        function setStatus(message, color) {
+            statusBox.classList.remove('hidden');
+            statusBox.innerHTML = `<strong>Transmission Status:</strong> ${message}`;
+            statusBox.style.borderColor = color || 'rgba(56, 189, 248, 0.35)';
+        }
+
+        function showRematchPanel(message, allowVote) {
+            rematchPanel.classList.remove('hidden');
+            rematchMessage.innerText = message;
+            rematchYes.disabled = !allowVote;
+            rematchNo.disabled = !allowVote;
+            rematchYes.classList.toggle('opacity-40', !allowVote);
+            rematchNo.classList.toggle('opacity-40', !allowVote);
+        }
+
+        function hideRematchPanel() {
+            rematchPanel.classList.add('hidden');
+            rematchVoted = false;
+            rematchYes.disabled = false;
+            rematchNo.disabled = false;
+            rematchYes.classList.remove('opacity-40');
+            rematchNo.classList.remove('opacity-40');
+        }
+
+        function animateDataPacket(zone, result) {
+            const targetButton = getZoneButton(zone);
+            if (!targetButton) {
+                return;
+            }
+
+            const targetRect = targetButton.getBoundingClientRect();
+            const startX = window.innerWidth / 2;
+            const startY = window.innerHeight - 28;
+            const targetX = targetRect.left + targetRect.width / 2;
+            const targetY = targetRect.top + targetRect.height / 2;
+
+            const packet = document.createElement('div');
+            packet.className = 'data-packet';
+            packet.style.left = `${startX}px`;
+            packet.style.top = `${startY}px`;
+            packet.style.setProperty('--dx', `${targetX - startX}px`);
+            packet.style.setProperty('--dy', `${targetY - startY}px`);
+            document.body.appendChild(packet);
+
+            requestAnimationFrame(() => {
+                packet.classList.add('fly');
+            });
+
+            setTimeout(() => {
+                const splash = document.createElement('div');
+                splash.className = 'impact-splash';
+                splash.style.left = `${targetX}px`;
+                splash.style.top = `${targetY}px`;
+                splash.style.borderColor = result === 'SAVED' ? 'rgba(34, 197, 94, 0.9)' : 'rgba(244, 114, 182, 0.9)';
+                document.body.appendChild(splash);
+                setTimeout(() => splash.remove(), 460);
+            }, 680);
+
+            setTimeout(() => {
+                packet.remove();
+            }, 900);
+        }
+
+        function playDefenseOrBreachEffect(result, goalkeeperZone, shooterZone) {
+            const defendButton = getZoneButton(goalkeeperZone);
+            const shotButton = getZoneButton(shooterZone);
+
+            if (result === 'SAVED' && defendButton) {
+                defendButton.classList.add('defense-correct', 'ice-hit');
+                setTimeout(() => defendButton.classList.remove('ice-hit'), 900);
+            }
+
+            if (result === 'GOAL') {
+                if (shotButton) {
+                    shotButton.classList.add('breach-hit');
+                    setTimeout(() => shotButton.classList.remove('breach-hit'), 900);
+                }
+                if (defendButton) {
+                    defendButton.classList.add('defense-wrong');
+                }
+            }
+        }
+
+        function sendRematchVote(accepted) {
+            if (socket.readyState !== WebSocket.OPEN || !isGameOver || rematchVoted) {
+                return;
+            }
+
+            rematchVoted = true;
+            showRematchPanel(
+                accepted ? 'Rematch vote transmitted. Awaiting rival node...' : 'Session terminated by local operator.',
+                false
+            );
+            socket.send(JSON.stringify({ action: 'rematch', accepted: accepted }));
+        }
+
+        function sendMove(zone) {
+            if (socket.readyState !== WebSocket.OPEN || hasSubmittedMove || isGameOver) {
+                return;
+            }
+
+            hasSubmittedMove = true;
+            setButtonsDisabled(true);
+            markSelectedZone(zone);
+            setStatus(`Data-virus packet queued for node ${zone}.`, 'rgba(56, 189, 248, 0.6)');
+            socket.send(JSON.stringify({ action: 'move', zone: zone }));
+        }
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            
+
             if (data.type === 'info') {
-                statusBox.innerText = data.message;
+                setStatus(data.message, 'rgba(56, 189, 248, 0.6)');
             }
-            
+
             if (data.type === 'match_start') {
                 statusBox.classList.add('hidden');
                 gameUI.classList.remove('hidden');
-                roleDisplay.innerText = data.message;
-                roleDisplay.classList.add(data.role === 'shooter' ? 'text-green-400' : 'text-blue-400');
+                isGameOver = false;
+                hideRematchPanel();
+                setRole(data.role, data.message);
+                updateHud(data);
+                hasSubmittedMove = false;
+                clearSelectedZone();
+                clearOutcomeEffects();
+                setButtonsDisabled(false);
+            }
+
+            if (data.type === 'round_result') {
+                animateDataPacket(data.shooter_zone, data.result);
+                updateHud(data);
+                hasSubmittedMove = false;
+                setButtonsDisabled(true);
+
+                // Keep selected and outcome nodes visible through shot travel and impact.
+                setTimeout(() => {
+                    playDefenseOrBreachEffect(data.result, data.goalkeeper_zone, data.shooter_zone);
+                    if (data.result === 'GOAL') {
+                        setStatus(`BREACH CONFIRMED on node ${data.shooter_zone}. Defender misread node ${data.goalkeeper_zone}.`, 'rgba(244, 114, 182, 0.75)');
+                    } else {
+                        setStatus(`ICE PROTOCOL BLOCKED node ${data.goalkeeper_zone}. Defensive lock is GREEN.`, 'rgba(34, 197, 94, 0.78)');
+                    }
+                }, 700);
+            }
+
+            if (data.type === 'round_start') {
+                setStatus('New cycle initialized. Deploy packet.', 'rgba(56, 189, 248, 0.6)');
+                hideRematchPanel();
+                setRole(data.role, data.message);
+                updateHud(data);
+                hasSubmittedMove = false;
+                clearSelectedZone();
+                clearOutcomeEffects();
+                setButtonsDisabled(false);
+            }
+
+            if (data.type === 'game_over') {
+                isGameOver = true;
+                updateHud(data);
+                setButtonsDisabled(true);
+                setStatus(
+                    data.result === 'WIN'
+                        ? `SESSION SUCCESS. Final payload: ${data.your_score} - ${data.opponent_score}.`
+                        : `SESSION BREACHED. Final payload: ${data.your_score} - ${data.opponent_score}.`,
+                    data.result === 'WIN' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.75)'
+                );
+                showRematchPanel('Session ended. Re-open channel with same rival node?', true);
+            }
+
+            if (data.type === 'rematch_waiting') {
+                showRematchPanel(data.message, !rematchVoted);
+            }
+
+            if (data.type === 'rematch_declined') {
+                showRematchPanel(data.message, false);
             }
         };
 
-        function sendMove(zone) {
-            socket.send(JSON.stringify({ action: 'move', zone: zone }));
-            console.log("Move sent to zone:", zone);
-        }
+        socket.onclose = () => {
+            setButtonsDisabled(true);
+            setStatus('Link dropped. Retry connection.', 'rgba(239, 68, 68, 0.75)');
+        };
+
+        setButtonsDisabled(true);
     </script>
 </body>
 </html>
