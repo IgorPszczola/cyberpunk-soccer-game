@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cyber-Penalty Duel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0d0221; color: #00ffcc; font-family: 'Courier New', Courier, monospace; }
+        .neon-border { border: 2px solid #00ffcc; box-shadow: 0 0 15px #00ffcc; }
+        .glitch { text-shadow: 2px 2px #ff0055; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen">
+    <h1 class="text-5xl font-bold mb-8 glitch tracking-widest">CYBER-PENALTY</h1>
+    
+    <div id="status-box" class="neon-border p-6 rounded-lg text-xl mb-4 w-80 text-center">
+        Connecting to neural link...
+    </div>
+
+    <div id="game-ui" class="hidden">
+        <p id="role-display" class="text-2xl font-bold mb-4"></p>
+        <div class="grid grid-cols-3 gap-4 bg-gray-900 p-4 rounded-xl border border-pink-500">
+            <button onclick="sendMove(1)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
+            <button onclick="sendMove(2)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
+            <button onclick="sendMove(3)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
+            <button onclick="sendMove(4)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
+            <button onclick="sendMove(5)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
+            <button onclick="sendMove(6)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
+            <button onclick="sendMove(7)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
+            <button onclick="sendMove(8)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
+            <button onclick="sendMove(9)" class="w-20 h-20 border border-pink-500 hover:bg-pink-500/20 transition-all"></button>
+        </div>
+    </div>
+
+    <script>
+        const statusBox = document.getElementById('status-box');
+        const gameUI = document.getElementById('game-ui');
+        const roleDisplay = document.getElementById('role-display');
+        
+        const socket = new WebSocket('ws://' + window.location.host + '/ws/game');
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'info') {
+                statusBox.innerText = data.message;
+            }
+            
+            if (data.type === 'match_start') {
+                statusBox.classList.add('hidden');
+                gameUI.classList.remove('hidden');
+                roleDisplay.innerText = data.message;
+                roleDisplay.classList.add(data.role === 'shooter' ? 'text-green-400' : 'text-blue-400');
+            }
+        };
+
+        function sendMove(zone) {
+            socket.send(JSON.stringify({ action: 'move', zone: zone }));
+            console.log("Move sent to zone:", zone);
+        }
+    </script>
+</body>
+</html>
