@@ -109,21 +109,34 @@ class ConnectionManager:
         self.waiting_player: Optional[WebSocket] = None
         self.rooms: Dict[WebSocket, GameRoom] = {}
 
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        if not self.waiting_player:
+    def cleanup_room(self, room: GameRoom):
+        # Remove all room references from matchmaking and active room index.
+        for player in room.players:
+            if self.waiting_player == player:
+                self.waiting_player = None
+            self.rooms.pop(player, None)
+
+    async def queue_or_match(self, websocket: WebSocket):
+        if self.waiting_player is None:
             self.waiting_player = websocket
             await websocket.send_json({"type": "info", "message": "Transmitting handshake... waiting for rival node."})
-        else:
-            # Tworzymy pokój dla nowej pary
-            room = GameRoom(player1=self.waiting_player, shooter=self.waiting_player)
-            room.add_player(websocket)
-            
-            self.rooms[self.waiting_player] = room
-            self.rooms[websocket] = room
+            return
 
-            await room.send_match_or_round_start("match_start")
-            self.waiting_player = None
+        if self.waiting_player == websocket:
+            return
+
+        room = GameRoom(player1=self.waiting_player, shooter=self.waiting_player)
+        room.add_player(websocket)
+
+        self.rooms[self.waiting_player] = room
+        self.rooms[websocket] = room
+
+        await room.send_match_or_round_start("match_start")
+        self.waiting_player = None
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        await self.queue_or_match(websocket)
 
     async def handle_move(self, websocket: WebSocket, zone: int):
         room = self.rooms.get(websocket)
@@ -157,11 +170,15 @@ class ConnectionManager:
         room.rematch_votes[websocket] = bool(accepted)
 
         if not accepted:
+            players_to_requeue = list(room.players)
             for player in room.players:
                 await player.send_json({
                     "type": "rematch_declined",
                     "message": "Rematch rejected. Reconnect to acquire a new rival node.",
                 })
+            self.cleanup_room(room)
+            for player in players_to_requeue:
+                await self.queue_or_match(player)
             return
 
         if opponent and room.rematch_votes.get(opponent) is True:
@@ -179,7 +196,7 @@ class ConnectionManager:
         if room:
             for p in room.players:
                 if p != websocket:
-                    self.rooms.pop(p, None)
+                    self.cleanup_room(room)
                     return p
         return None
 
