@@ -1,7 +1,18 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from typing import Dict, Optional
+from dotenv import load_dotenv
+from contextlib import asynccontextmanager
 
-app = FastAPI()
+from database import connect_to_mongodb, close_mongodb_connection, db_instance
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await connect_to_mongodb()
+    yield
+    await close_mongodb_connection()
+
+
+app = FastAPI(lifespan=lifespan)
 
 class GameRoom:
     def __init__(self, player1: WebSocket, shooter: WebSocket):
