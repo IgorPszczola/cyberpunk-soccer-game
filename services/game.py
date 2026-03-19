@@ -1,6 +1,9 @@
+from datetime import datetime, timezone
 from typing import Dict, Optional
 
 from fastapi import WebSocket
+
+from database import db_instance
 
 
 class GameRoom:
@@ -10,6 +13,8 @@ class GameRoom:
         self.player_names = dict(player_names)
         self.moves: Dict[WebSocket, int] = {}
         self.score: Dict[WebSocket, int] = {player1: 0}
+        self.saves: Dict[WebSocket, int] = {player1: 0}
+        self.shots_taken: Dict[WebSocket, int] = {player1: 0}
         self.round_number = 1
         self.target_score = 3
         self.game_over = False
@@ -19,11 +24,15 @@ class GameRoom:
         self.players.append(websocket)
         self.player_names[websocket] = nickname
         self.score[websocket] = 0
+        self.saves[websocket] = 0
+        self.shots_taken[websocket] = 0
         self.rematch_votes[websocket] = None
 
     def reset_for_rematch(self):
         self.moves = {}
         self.score = {player: 0 for player in self.players}
+        self.saves = {player: 0 for player in self.players}
+        self.shots_taken = {player: 0 for player in self.players}
         self.round_number = 1
         self.game_over = False
         self.rematch_votes = {player: None for player in self.players}
@@ -78,9 +87,12 @@ class GameRoom:
         shooter_zone = self.moves[shooter_ws]
         goalkeeper_zone = self.moves[goalkeeper_ws]
         result = "SAVED" if shooter_zone == goalkeeper_zone else "GOAL"
+        self.shots_taken[shooter_ws] = self.shots_taken.get(shooter_ws, 0) + 1
 
         if result == "GOAL":
             self.score[shooter_ws] += 1
+        else:
+            self.saves[goalkeeper_ws] = self.saves.get(goalkeeper_ws, 0) + 1
 
         for p in self.players:
             opponent = p1 if p == p2 else p2
@@ -99,6 +111,11 @@ class GameRoom:
         winner = next((player for player, points in self.score.items() if points >= self.target_score), None)
         if winner:
             self.game_over = True
+            try:
+                await self.persist_match_result(winner)
+            except Exception:
+                # Gameplay should continue even if persistence is temporarily unavailable.
+                pass
             for player in self.players:
                 opponent = p1 if player == p2 else p2
                 await player.send_json(
@@ -117,6 +134,67 @@ class GameRoom:
             await self.send_match_or_round_start("round_start")
 
         self.moves = {}
+
+    async def persist_match_result(self, winner: WebSocket):
+        if db_instance.db is None:
+            return
+
+        p1, p2 = self.players
+        created_at = datetime.now(timezone.utc)
+
+        def player_snapshot(player: WebSocket, opponent: WebSocket) -> Dict[str, object]:
+            display_name = self.get_player_name(player)
+            return {
+                "nickname": display_name.lower(),
+                "display_nickname": display_name,
+                "result": "WIN" if player == winner else "LOSE",
+                "score": self.score.get(player, 0),
+                "opponent_score": self.score.get(opponent, 0),
+                "saves": self.saves.get(player, 0),
+                "shots_taken": self.shots_taken.get(player, 0),
+            }
+
+        p1_snapshot = player_snapshot(p1, p2)
+        p2_snapshot = player_snapshot(p2, p1)
+
+        matches = db_instance.db["matches"]
+        await matches.insert_one(
+            {
+                "created_at": created_at,
+                "target_score": self.target_score,
+                "rounds_played": self.round_number,
+                "players": [p1_snapshot, p2_snapshot],
+                "winner_nickname": self.get_player_name(winner).lower(),
+                "winner_display_nickname": self.get_player_name(winner),
+            }
+        )
+
+        user_stats = db_instance.db["user_stats"]
+        for player, snapshot in ((p1, p1_snapshot), (p2, p2_snapshot)):
+            nickname = self.get_player_name(player)
+            await user_stats.update_one(
+                {"nickname": nickname.lower()},
+                {
+                    "$setOnInsert": {
+                        "nickname": nickname.lower(),
+                        "created_at": created_at,
+                    },
+                    "$set": {
+                        "display_nickname": nickname,
+                        "updated_at": created_at,
+                    },
+                    "$inc": {
+                        "games_played": 1,
+                        "wins": 1 if snapshot["result"] == "WIN" else 0,
+                        "losses": 1 if snapshot["result"] == "LOSE" else 0,
+                        "goals_scored": int(snapshot["score"]),
+                        "goals_conceded": int(snapshot["opponent_score"]),
+                        "saves": int(snapshot["saves"]),
+                        "shots_taken": int(snapshot["shots_taken"]),
+                    },
+                },
+                upsert=True,
+            )
 
 
 class ConnectionManager:

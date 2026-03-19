@@ -20,6 +20,12 @@ def get_users_collection():
     return db_instance.db["users"]
 
 
+def get_db_or_503():
+    if db_instance.db is None:
+        raise HTTPException(status_code=503, detail="Database is not connected.")
+    return db_instance.db
+
+
 @router.get("/health/db")
 async def db_health():
     if db_instance.client is None or db_instance.db is None:
@@ -69,3 +75,79 @@ async def login(payload: LoginRequest):
         raise HTTPException(status_code=401, detail="Invalid nickname or password.")
 
     return {"status": "ok", "nickname": user.get("display_nickname", nickname)}
+
+
+@router.get("/api/profile/{nickname}/stats")
+async def profile_stats(nickname: str):
+    normalized = validate_nickname(nickname)
+    db = get_db_or_503()
+    stats = await db["user_stats"].find_one({"nickname": normalized.lower()})
+
+    if not stats:
+        return {
+            "nickname": normalized,
+            "games_played": 0,
+            "wins": 0,
+            "losses": 0,
+            "goals_scored": 0,
+            "goals_conceded": 0,
+            "saves": 0,
+            "shots_taken": 0,
+            "win_rate": 0.0,
+            "save_rate": 0.0,
+        }
+
+    games_played = int(stats.get("games_played", 0))
+    wins = int(stats.get("wins", 0))
+    saves = int(stats.get("saves", 0))
+    shots_taken = int(stats.get("shots_taken", 0))
+
+    return {
+        "nickname": stats.get("display_nickname", normalized),
+        "games_played": games_played,
+        "wins": wins,
+        "losses": int(stats.get("losses", 0)),
+        "goals_scored": int(stats.get("goals_scored", 0)),
+        "goals_conceded": int(stats.get("goals_conceded", 0)),
+        "saves": saves,
+        "shots_taken": shots_taken,
+        "win_rate": round((wins / games_played) * 100, 1) if games_played else 0.0,
+        "save_rate": round((saves / shots_taken) * 100, 1) if shots_taken else 0.0,
+    }
+
+
+@router.get("/api/profile/{nickname}/history")
+async def profile_history(nickname: str, limit: int = 8):
+    normalized = validate_nickname(nickname)
+    db = get_db_or_503()
+    effective_limit = min(max(limit, 1), 20)
+
+    cursor = db["matches"].find(
+        {"players.nickname": normalized.lower()},
+        {"players": 1, "created_at": 1, "target_score": 1, "rounds_played": 1},
+    ).sort("created_at", -1).limit(effective_limit)
+
+    history = []
+    async for match in cursor:
+        players = match.get("players", [])
+        me = next((p for p in players if p.get("nickname") == normalized.lower()), None)
+        opponent = next((p for p in players if p.get("nickname") != normalized.lower()), None)
+        if not me:
+            continue
+
+        created_at = match.get("created_at")
+        created_iso = created_at.isoformat() if created_at else None
+
+        history.append(
+            {
+                "created_at": created_iso,
+                "result": me.get("result", "UNKNOWN"),
+                "your_score": int(me.get("score", 0)),
+                "opponent_score": int(me.get("opponent_score", 0)),
+                "opponent_nickname": opponent.get("display_nickname", "Unknown") if opponent else "Unknown",
+                "rounds_played": int(match.get("rounds_played", 0)),
+                "target_score": int(match.get("target_score", 0)),
+            }
+        )
+
+    return {"nickname": normalized, "history": history}
