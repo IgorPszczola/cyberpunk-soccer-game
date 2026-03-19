@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from typing import Dict, Optional
-from dotenv import load_dotenv
 from contextlib import asynccontextmanager
+from fastapi.responses import HTMLResponse
 
 from database import connect_to_mongodb, close_mongodb_connection, db_instance
 
@@ -213,10 +213,20 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+@app.get("/health/db")
+async def db_health():
+    if not db_instance.client or not db_instance.db:
+        return {"status": "error", "database": "disconnected"}
+
+    try:
+        await db_instance.client.admin.command("ping")
+        return {"status": "ok", "database": db_instance.db.name}
+    except Exception as exc:
+        return {"status": "error", "database": "unreachable", "detail": str(exc)}
+
 @app.get("/")
 async def get():
     with open("index.html", "r", encoding="utf-8") as f:
-        from fastapi.responses import HTMLResponse
         return HTMLResponse(f.read())
 
 @app.websocket("/ws/game")
