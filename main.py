@@ -1,7 +1,13 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import hashlib
+import hmac
+import os
+from datetime import datetime, timezone
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from typing import Dict, Optional
 from contextlib import asynccontextmanager
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 
 from database import connect_to_mongodb, close_mongodb_connection, db_instance
 
@@ -14,10 +20,98 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+
+class RegisterRequest(BaseModel):
+    nickname: str
+    password: str
+    password_confirm: str
+
+
+class LoginRequest(BaseModel):
+    nickname: str
+    password: str
+
+
+def hash_password(password: str, salt_hex: str) -> str:
+    salt = bytes.fromhex(salt_hex)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120000)
+    return digest.hex()
+
+
+def build_password_record(password: str) -> tuple[str, str]:
+    salt_hex = os.urandom(16).hex()
+    return salt_hex, hash_password(password, salt_hex)
+
+
+def verify_password(password: str, salt_hex: str, expected_hash_hex: str) -> bool:
+    computed = hash_password(password, salt_hex)
+    return hmac.compare_digest(computed, expected_hash_hex)
+
+
+def validate_nickname(nickname: str) -> str:
+    normalized = nickname.strip()
+    if not 3 <= len(normalized) <= 24:
+        raise HTTPException(status_code=400, detail="Nickname must be 3-24 characters.")
+    if not normalized.replace("_", "").isalnum():
+        raise HTTPException(status_code=400, detail="Nickname can contain letters, digits, and underscore.")
+    return normalized
+
+
+def validate_password(password: str):
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+
+
+def get_users_collection():
+    if db_instance.db is None:
+        raise HTTPException(status_code=503, detail="Database is not connected.")
+    return db_instance.db["users"]
+
+
+@app.post("/api/register")
+async def register(payload: RegisterRequest):
+    nickname = validate_nickname(payload.nickname)
+    validate_password(payload.password)
+    if payload.password != payload.password_confirm:
+        raise HTTPException(status_code=400, detail="Passwords do not match.")
+
+    users = get_users_collection()
+    existing = await users.find_one({"nickname": nickname.lower()}, {"_id": 1})
+    if existing:
+        raise HTTPException(status_code=409, detail="Nickname is already taken.")
+
+    salt_hex, password_hash = build_password_record(payload.password)
+    await users.insert_one({
+        "nickname": nickname.lower(),
+        "display_nickname": nickname,
+        "password_salt": salt_hex,
+        "password_hash": password_hash,
+        "created_at": datetime.now(timezone.utc),
+    })
+    return {"status": "ok", "nickname": nickname}
+
+
+@app.post("/api/login")
+async def login(payload: LoginRequest):
+    nickname = validate_nickname(payload.nickname)
+    users = get_users_collection()
+    user = await users.find_one({"nickname": nickname.lower()})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid nickname or password.")
+
+    if not verify_password(payload.password, user.get("password_salt", ""), user.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Invalid nickname or password.")
+
+    return {
+        "status": "ok",
+        "nickname": user.get("display_nickname", nickname),
+    }
+
 class GameRoom:
-    def __init__(self, player1: WebSocket, shooter: WebSocket):
+    def __init__(self, player1: WebSocket, shooter: WebSocket, player_names: Dict[WebSocket, str]):
         self.players = [player1]
         self.shooter = shooter
+        self.player_names = dict(player_names)
         self.moves: Dict[WebSocket, int] = {}  # Ruchy: {ws: strefa}
         self.score: Dict[WebSocket, int] = {player1: 0}
         self.round_number = 1
@@ -25,8 +119,9 @@ class GameRoom:
         self.game_over = False
         self.rematch_votes: Dict[WebSocket, Optional[bool]] = {player1: None}
 
-    def add_player(self, websocket: WebSocket):
+    def add_player(self, websocket: WebSocket, nickname: str):
         self.players.append(websocket)
+        self.player_names[websocket] = nickname
         self.score[websocket] = 0
         self.rematch_votes[websocket] = None
 
@@ -48,6 +143,9 @@ class GameRoom:
     def get_role(self, websocket: WebSocket) -> str:
         return "shooter" if websocket == self.shooter else "goalkeeper"
 
+    def get_player_name(self, websocket: WebSocket) -> str:
+        return self.player_names.get(websocket, "Unknown")
+
     def build_player_state(self, websocket: WebSocket) -> Dict[str, int]:
         opponent = self.get_opponent(websocket)
         return {
@@ -55,6 +153,8 @@ class GameRoom:
             "target_score": self.target_score,
             "your_score": self.score.get(websocket, 0),
             "opponent_score": self.score.get(opponent, 0) if opponent else 0,
+            "your_nickname": self.get_player_name(websocket),
+            "opponent_nickname": self.get_player_name(opponent) if opponent else "Pending",
         }
 
     async def send_match_or_round_start(self, event_type: str):
@@ -119,6 +219,10 @@ class ConnectionManager:
     def __init__(self):
         self.waiting_player: Optional[WebSocket] = None
         self.rooms: Dict[WebSocket, GameRoom] = {}
+        self.player_nicknames: Dict[WebSocket, str] = {}
+
+    def get_player_nickname(self, websocket: WebSocket) -> str:
+        return self.player_nicknames.get(websocket, "Unknown")
 
     def cleanup_room(self, room: GameRoom):
         # Remove all room references from matchmaking and active room index.
@@ -136,8 +240,13 @@ class ConnectionManager:
         if self.waiting_player == websocket:
             return
 
-        room = GameRoom(player1=self.waiting_player, shooter=self.waiting_player)
-        room.add_player(websocket)
+        waiting_nickname = self.get_player_nickname(self.waiting_player)
+        room = GameRoom(
+            player1=self.waiting_player,
+            shooter=self.waiting_player,
+            player_names={self.waiting_player: waiting_nickname},
+        )
+        room.add_player(websocket, self.get_player_nickname(websocket))
 
         self.rooms[self.waiting_player] = room
         self.rooms[websocket] = room
@@ -145,8 +254,9 @@ class ConnectionManager:
         await room.send_match_or_round_start("match_start")
         self.waiting_player = None
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, nickname: str):
         await websocket.accept()
+        self.player_nicknames[websocket] = nickname
         await self.queue_or_match(websocket)
 
     async def handle_move(self, websocket: WebSocket, zone: int):
@@ -204,6 +314,7 @@ class ConnectionManager:
         if self.waiting_player == websocket:
             self.waiting_player = None
         room = self.rooms.pop(websocket, None)
+        self.player_nicknames.pop(websocket, None)
         if room:
             for p in room.players:
                 if p != websocket:
@@ -215,7 +326,7 @@ manager = ConnectionManager()
 
 @app.get("/health/db")
 async def db_health():
-    if not db_instance.client or not db_instance.db:
+    if db_instance.client is None or db_instance.db is None:
         return {"status": "error", "database": "disconnected"}
 
     try:
@@ -231,7 +342,15 @@ async def get():
 
 @app.websocket("/ws/game")
 async def game_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+    raw_nickname = websocket.query_params.get("nickname", "")
+    try:
+        nickname = validate_nickname(raw_nickname)
+    except HTTPException:
+        await websocket.accept()
+        await websocket.close(code=1008, reason="Invalid nickname")
+        return
+
+    await manager.connect(websocket, nickname)
     try:
         while True:
             data = await websocket.receive_json()

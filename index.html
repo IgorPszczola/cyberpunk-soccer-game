@@ -264,16 +264,153 @@
             70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
             100% { opacity: 0; transform: translate(-50%, -58%) scale(0.98); }
         }
+
+        .auth-shell {
+            width: min(92vw, 520px);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            background: linear-gradient(165deg, rgba(8, 14, 27, 0.9), rgba(8, 14, 27, 0.72));
+            box-shadow: 0 0 24px rgba(56, 189, 248, 0.2), inset 0 0 24px rgba(56, 189, 248, 0.06);
+        }
+
+        .mode-btn {
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            background: rgba(8, 17, 34, 0.5);
+            color: #c5eaff;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.78rem;
+        }
+
+        .mode-btn.active {
+            border-color: rgba(244, 114, 182, 0.8);
+            box-shadow: 0 0 18px rgba(244, 114, 182, 0.4);
+            color: #ffd9eb;
+            background: rgba(244, 114, 182, 0.16);
+        }
+
+        .auth-input {
+            width: 100%;
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            background: rgba(8, 17, 34, 0.55);
+            color: #e0f5ff;
+            padding: 0.6rem 0.72rem;
+            border-radius: 0.5rem;
+            outline: none;
+        }
+
+        .auth-input:focus {
+            border-color: rgba(244, 114, 182, 0.75);
+            box-shadow: 0 0 0 1px rgba(244, 114, 182, 0.5), 0 0 14px rgba(244, 114, 182, 0.3);
+        }
+
+        .auth-input::placeholder {
+            color: rgba(201, 234, 255, 0.55);
+        }
+
+        .auth-cta {
+            width: 100%;
+            border: 1px solid rgba(244, 114, 182, 0.8);
+            background: linear-gradient(135deg, rgba(244, 114, 182, 0.26), rgba(56, 189, 248, 0.2));
+            color: #f8fbff;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            font-weight: 700;
+            padding: 0.64rem 0.8rem;
+            border-radius: 0.5rem;
+            transition: transform 140ms ease, box-shadow 140ms ease;
+        }
+
+        .auth-cta:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 20px rgba(244, 114, 182, 0.32);
+        }
+
+        .profile-chip {
+            position: fixed;
+            top: 14px;
+            right: 14px;
+            z-index: 130;
+            border: 1px solid rgba(56, 189, 248, 0.5);
+            background: rgba(8, 17, 34, 0.72);
+            box-shadow: 0 0 18px rgba(56, 189, 248, 0.2);
+            padding: 8px 10px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 170px;
+        }
+
+        .profile-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            border: 1px solid rgba(244, 114, 182, 0.8);
+            background: radial-gradient(circle at 30% 25%, rgba(244, 114, 182, 0.58), rgba(56, 189, 248, 0.25));
+            color: #f8fbff;
+            font-size: 0.85rem;
+            font-weight: 800;
+            display: grid;
+            place-items: center;
+            text-transform: uppercase;
+        }
+
+        .matchup-line {
+            border: 1px solid rgba(244, 114, 182, 0.35);
+            background: rgba(12, 19, 37, 0.8);
+            border-radius: 10px;
+            padding: 0.65rem 0.8rem;
+            margin-bottom: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #fde7f3;
+            text-align: center;
+        }
+
+        .vs-sep {
+            color: #38bdf8;
+            margin: 0 0.3rem;
+        }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center py-6">
     <h1 class="text-3xl md:text-5xl font-bold mb-6 glitch tracking-widest text-center">TACTICAL PENALTY // NETRUN</h1>
 
-    <div id="status-box" class="panel p-4 rounded-lg text-sm md:text-base mb-4 w-[92vw] max-w-[520px] text-center">
+    <div id="profile-chip" class="profile-chip hidden">
+        <div id="profile-avatar" class="profile-avatar">?</div>
+        <div class="text-left">
+            <p class="text-[10px] tracking-[0.18em] text-sky-300">OPERATOR</p>
+            <p id="profile-name" class="text-sm font-semibold text-sky-100">Unknown</p>
+        </div>
+    </div>
+
+    <div id="auth-shell" class="auth-shell panel rounded-lg p-4 md:p-5 mb-4">
+        <p class="text-xs tracking-[0.18em] text-sky-300 mb-2">ACCESS GATEWAY</p>
+        <div class="flex gap-2 mb-4">
+            <button id="mode-login" class="mode-btn active px-3 py-2 rounded-md flex-1">Login</button>
+            <button id="mode-register" class="mode-btn px-3 py-2 rounded-md flex-1">Register</button>
+        </div>
+
+        <form id="auth-form" class="space-y-3">
+            <input id="nickname-input" class="auth-input" type="text" maxlength="24" placeholder="Nickname" autocomplete="username" required>
+            <input id="password-input" class="auth-input" type="password" minlength="8" placeholder="Password" autocomplete="current-password" required>
+            <input id="password-confirm-input" class="auth-input hidden" type="password" minlength="8" placeholder="Confirm password" autocomplete="new-password">
+            <button id="auth-submit" class="auth-cta" type="submit">Login</button>
+        </form>
+
+        <p id="auth-status" class="text-xs md:text-sm mt-3 text-sky-200/90">Authenticate to open matchmaking channel.</p>
+    </div>
+
+    <div id="status-box" class="hidden panel p-4 rounded-lg text-sm md:text-base mb-4 w-[92vw] max-w-[520px] text-center">
         <strong>Transmission Status:</strong> Establishing encrypted channel...
     </div>
 
     <div id="game-ui" class="hidden w-full flex flex-col items-center">
+        <div id="matchup-display" class="matchup-line w-[92vw] max-w-[520px]">
+            <span id="you-name">YOU</span><span class="vs-sep">VS</span><span id="opponent-name">PENDING</span>
+        </div>
+
         <p id="role-display" class="text-xl md:text-2xl font-bold mb-3"></p>
 
         <div class="panel p-3 rounded-lg mb-4 text-center w-[92vw] max-w-[520px]">
@@ -308,8 +445,23 @@
     <div id="round-banner" class="round-banner"></div>
 
     <script>
+        const authShell = document.getElementById('auth-shell');
+        const authForm = document.getElementById('auth-form');
+        const modeLoginButton = document.getElementById('mode-login');
+        const modeRegisterButton = document.getElementById('mode-register');
+        const nicknameInput = document.getElementById('nickname-input');
+        const passwordInput = document.getElementById('password-input');
+        const passwordConfirmInput = document.getElementById('password-confirm-input');
+        const authSubmit = document.getElementById('auth-submit');
+        const authStatus = document.getElementById('auth-status');
+        const profileChip = document.getElementById('profile-chip');
+        const profileAvatar = document.getElementById('profile-avatar');
+        const profileName = document.getElementById('profile-name');
         const statusBox = document.getElementById('status-box');
         const gameUI = document.getElementById('game-ui');
+        const matchupDisplay = document.getElementById('matchup-display');
+        const youName = document.getElementById('you-name');
+        const opponentName = document.getElementById('opponent-name');
         const roleDisplay = document.getElementById('role-display');
         const roundDisplay = document.getElementById('round-display');
         const scoreDisplay = document.getElementById('score-display');
@@ -322,12 +474,45 @@
         const roundBanner = document.getElementById('round-banner');
         const zoneButtons = Array.from(document.querySelectorAll('.node-btn'));
 
+        let authMode = 'login';
+        let socket = null;
+        let currentNickname = '';
         let hasSubmittedMove = false;
         let isGameOver = false;
         let rematchVoted = false;
         let currentRole = null;
 
-        const socket = new WebSocket('ws://' + window.location.host + '/ws/game');
+        function setAuthStatus(message, isError = false) {
+            authStatus.textContent = message;
+            authStatus.classList.remove('text-sky-200/90', 'text-rose-300');
+            authStatus.classList.add(isError ? 'text-rose-300' : 'text-sky-200/90');
+        }
+
+        function setAuthMode(mode) {
+            authMode = mode;
+            const isRegister = mode === 'register';
+            modeLoginButton.classList.toggle('active', !isRegister);
+            modeRegisterButton.classList.toggle('active', isRegister);
+            passwordConfirmInput.classList.toggle('hidden', !isRegister);
+            passwordConfirmInput.required = isRegister;
+            passwordInput.autocomplete = isRegister ? 'new-password' : 'current-password';
+            authSubmit.textContent = isRegister ? 'Register' : 'Login';
+            setAuthStatus(isRegister ? 'Create operator account to enter arena.' : 'Authenticate to open matchmaking channel.');
+        }
+
+        function updateProfileChip(nickname) {
+            const displayName = nickname || 'Unknown';
+            profileName.textContent = displayName;
+            profileAvatar.textContent = displayName.slice(0, 1).toUpperCase() || '?';
+            profileChip.classList.remove('hidden');
+        }
+
+        function updateMatchup(data) {
+            const yourName = data.your_nickname || currentNickname || 'You';
+            const rivalName = data.opponent_nickname || 'Pending';
+            youName.textContent = `${yourName} (You)`;
+            opponentName.textContent = rivalName;
+        }
 
         function setButtonsDisabled(disabled) {
             zoneButtons.forEach((btn) => {
@@ -473,7 +658,7 @@
         }
 
         function sendRematchVote(accepted) {
-            if (socket.readyState !== WebSocket.OPEN || !isGameOver || rematchVoted) {
+            if (!socket || socket.readyState !== WebSocket.OPEN || !isGameOver || rematchVoted) {
                 return;
             }
 
@@ -486,7 +671,7 @@
         }
 
         function sendMove(zone) {
-            if (socket.readyState !== WebSocket.OPEN || hasSubmittedMove || isGameOver) {
+            if (!socket || socket.readyState !== WebSocket.OPEN || hasSubmittedMove || isGameOver) {
                 return;
             }
 
@@ -498,90 +683,166 @@
             socket.send(JSON.stringify({ action: 'move', zone: zone }));
         }
 
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-
-            if (data.type === 'info') {
-                setStatus(data.message, 'rgba(56, 189, 248, 0.6)');
+        function connectGameSocket() {
+            if (socket && socket.readyState <= WebSocket.OPEN) {
+                return;
             }
 
-            if (data.type === 'match_start') {
-                statusBox.classList.add('hidden');
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+            const wsUrl = `${wsProtocol}${window.location.host}/ws/game?nickname=${encodeURIComponent(currentNickname)}`;
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = () => {
+                statusBox.classList.remove('hidden');
+                setStatus('Authenticated. Establishing encrypted channel...', 'rgba(56, 189, 248, 0.6)');
+            };
+
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'info') {
+                    setStatus(data.message, 'rgba(56, 189, 248, 0.6)');
+                }
+
+                if (data.type === 'match_start') {
+                    statusBox.classList.add('hidden');
+                    gameUI.classList.remove('hidden');
+                    isGameOver = false;
+                    hideRematchPanel();
+                    setRole(data.role, data.message);
+                    updateMatchup(data);
+                    updateHud(data);
+                    hasSubmittedMove = false;
+                    clearSelectedZone();
+                    clearOutcomeEffects();
+                    setButtonsDisabled(false);
+                }
+
+                if (data.type === 'round_result') {
+                    const roleAtResult = currentRole;
+                    animateDataPacket(data.shooter_zone, data.result);
+                    updateHud(data);
+                    hasSubmittedMove = false;
+                    setButtonsDisabled(true);
+
+                    // Keep selected and outcome nodes visible through shot travel and impact.
+                    setTimeout(() => {
+                        playDefenseOrBreachEffect(data.result, data.goalkeeper_zone, data.shooter_zone);
+
+                        if (roleAtResult === 'shooter') {
+                            showRoundBanner(data.result === 'GOAL' ? 'You Scored!' : 'Shot Blocked!', data.result === 'GOAL');
+                        } else {
+                            showRoundBanner(data.result === 'SAVED' ? 'You Saved!' : 'System Breached!', data.result === 'SAVED');
+                        }
+
+                        if (data.result === 'GOAL') {
+                            setStatus(`BREACH CONFIRMED on node ${data.shooter_zone}. Defender misread node ${data.goalkeeper_zone}.`, 'rgba(244, 114, 182, 0.75)');
+                        } else {
+                            setStatus(`ICE PROTOCOL BLOCKED node ${data.goalkeeper_zone}. Defensive lock is GREEN.`, 'rgba(34, 197, 94, 0.78)');
+                        }
+                    }, 700);
+                }
+
+                if (data.type === 'round_start') {
+                    setStatus('New cycle initialized. Deploy packet.', 'rgba(56, 189, 248, 0.6)');
+                    hideRematchPanel();
+                    setRole(data.role, data.message);
+                    updateMatchup(data);
+                    updateHud(data);
+                    hasSubmittedMove = false;
+                    clearSelectedZone();
+                    clearOutcomeEffects();
+                    setButtonsDisabled(false);
+                }
+
+                if (data.type === 'game_over') {
+                    isGameOver = true;
+                    updateHud(data);
+                    setButtonsDisabled(true);
+                    setStatus(
+                        data.result === 'WIN'
+                            ? `SESSION SUCCESS. Final payload: ${data.your_score} - ${data.opponent_score}.`
+                            : `SESSION BREACHED. Final payload: ${data.your_score} - ${data.opponent_score}.`,
+                        data.result === 'WIN' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.75)'
+                    );
+                    showRematchPanel('Session ended. Re-open channel with same rival node?', true);
+                }
+
+                if (data.type === 'rematch_waiting') {
+                    showRematchPanel(data.message, !rematchVoted);
+                }
+
+                if (data.type === 'rematch_declined') {
+                    showRematchPanel(data.message, false);
+                }
+            };
+
+            socket.onclose = () => {
+                setButtonsDisabled(true);
+                setStatus('Link dropped. Retry connection.', 'rgba(239, 68, 68, 0.75)');
+            };
+        }
+
+        async function submitAuth(event) {
+            event.preventDefault();
+
+            const nickname = nicknameInput.value.trim();
+            const password = passwordInput.value;
+            const passwordConfirm = passwordConfirmInput.value;
+
+            if (!nickname || !password) {
+                setAuthStatus('Nickname and password are required.', true);
+                return;
+            }
+
+            if (authMode === 'register' && password !== passwordConfirm) {
+                setAuthStatus('Passwords do not match.', true);
+                return;
+            }
+
+            const endpoint = authMode === 'register' ? '/api/register' : '/api/login';
+            const payload = authMode === 'register'
+                ? { nickname: nickname, password: password, password_confirm: passwordConfirm }
+                : { nickname: nickname, password: password };
+
+            authSubmit.disabled = true;
+            authSubmit.classList.add('opacity-60', 'cursor-not-allowed');
+            setAuthStatus(authMode === 'register' ? 'Creating operator identity...' : 'Verifying operator identity...');
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    setAuthStatus(result.detail || 'Authentication failed.', true);
+                    return;
+                }
+
+                authShell.classList.add('hidden');
                 gameUI.classList.remove('hidden');
-                isGameOver = false;
-                hideRematchPanel();
-                setRole(data.role, data.message);
-                updateHud(data);
-                hasSubmittedMove = false;
-                clearSelectedZone();
-                clearOutcomeEffects();
-                setButtonsDisabled(false);
+                currentNickname = result.nickname;
+                updateProfileChip(currentNickname);
+                youName.textContent = `${currentNickname} (You)`;
+                opponentName.textContent = 'Pending';
+                setStatus(`Identity accepted: ${result.nickname}. Opening game channel...`, 'rgba(34, 197, 94, 0.7)');
+                connectGameSocket();
+            } catch (error) {
+                setAuthStatus('Auth service unreachable. Try again.', true);
+            } finally {
+                authSubmit.disabled = false;
+                authSubmit.classList.remove('opacity-60', 'cursor-not-allowed');
             }
+        }
 
-            if (data.type === 'round_result') {
-                const roleAtResult = currentRole;
-                animateDataPacket(data.shooter_zone, data.result);
-                updateHud(data);
-                hasSubmittedMove = false;
-                setButtonsDisabled(true);
-
-                // Keep selected and outcome nodes visible through shot travel and impact.
-                setTimeout(() => {
-                    playDefenseOrBreachEffect(data.result, data.goalkeeper_zone, data.shooter_zone);
-
-                    if (roleAtResult === 'shooter') {
-                        showRoundBanner(data.result === 'GOAL' ? 'You Scored!' : 'Shot Blocked!', data.result === 'GOAL');
-                    } else {
-                        showRoundBanner(data.result === 'SAVED' ? 'You Saved!' : 'System Breached!', data.result === 'SAVED');
-                    }
-
-                    if (data.result === 'GOAL') {
-                        setStatus(`BREACH CONFIRMED on node ${data.shooter_zone}. Defender misread node ${data.goalkeeper_zone}.`, 'rgba(244, 114, 182, 0.75)');
-                    } else {
-                        setStatus(`ICE PROTOCOL BLOCKED node ${data.goalkeeper_zone}. Defensive lock is GREEN.`, 'rgba(34, 197, 94, 0.78)');
-                    }
-                }, 700);
-            }
-
-            if (data.type === 'round_start') {
-                setStatus('New cycle initialized. Deploy packet.', 'rgba(56, 189, 248, 0.6)');
-                hideRematchPanel();
-                setRole(data.role, data.message);
-                updateHud(data);
-                hasSubmittedMove = false;
-                clearSelectedZone();
-                clearOutcomeEffects();
-                setButtonsDisabled(false);
-            }
-
-            if (data.type === 'game_over') {
-                isGameOver = true;
-                updateHud(data);
-                setButtonsDisabled(true);
-                setStatus(
-                    data.result === 'WIN'
-                        ? `SESSION SUCCESS. Final payload: ${data.your_score} - ${data.opponent_score}.`
-                        : `SESSION BREACHED. Final payload: ${data.your_score} - ${data.opponent_score}.`,
-                    data.result === 'WIN' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.75)'
-                );
-                showRematchPanel('Session ended. Re-open channel with same rival node?', true);
-            }
-
-            if (data.type === 'rematch_waiting') {
-                showRematchPanel(data.message, !rematchVoted);
-            }
-
-            if (data.type === 'rematch_declined') {
-                showRematchPanel(data.message, false);
-            }
-        };
-
-        socket.onclose = () => {
-            setButtonsDisabled(true);
-            setStatus('Link dropped. Retry connection.', 'rgba(239, 68, 68, 0.75)');
-        };
+        modeLoginButton.addEventListener('click', () => setAuthMode('login'));
+        modeRegisterButton.addEventListener('click', () => setAuthMode('register'));
+        authForm.addEventListener('submit', submitAuth);
 
         setButtonsDisabled(true);
+        setAuthMode('login');
     </script>
 </body>
 </html>
