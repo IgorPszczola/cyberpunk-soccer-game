@@ -89,8 +89,10 @@ async def profile_stats(nickname: str):
             "games_played": 0,
             "wins": 0,
             "losses": 0,
+            "draws": 0,
             "goals_scored": 0,
             "goals_conceded": 0,
+            "avg_lives_remaining": 0.0,
             "saves": 0,
             "shots_taken": 0,
             "win_rate": 0.0,
@@ -99,16 +101,20 @@ async def profile_stats(nickname: str):
 
     games_played = int(stats.get("games_played", 0))
     wins = int(stats.get("wins", 0))
+    draws = int(stats.get("draws", 0))
     saves = int(stats.get("saves", 0))
     shots_taken = int(stats.get("shots_taken", 0))
+    lives_remaining_total = int(stats.get("lives_remaining_total", 0))
 
     return {
         "nickname": stats.get("display_nickname", normalized),
         "games_played": games_played,
         "wins": wins,
         "losses": int(stats.get("losses", 0)),
+        "draws": draws,
         "goals_scored": int(stats.get("goals_scored", 0)),
         "goals_conceded": int(stats.get("goals_conceded", 0)),
+        "avg_lives_remaining": round((lives_remaining_total / games_played), 2) if games_played else 0.0,
         "saves": saves,
         "shots_taken": shots_taken,
         "win_rate": round((wins / games_played) * 100, 1) if games_played else 0.0,
@@ -144,6 +150,7 @@ async def profile_history(nickname: str, limit: int = 8):
                 "result": me.get("result", "UNKNOWN"),
                 "your_score": int(me.get("score", 0)),
                 "opponent_score": int(me.get("opponent_score", 0)),
+                "your_lives": int(me.get("lives", 0)),
                 "opponent_nickname": opponent.get("display_nickname", "Unknown") if opponent else "Unknown",
                 "rounds_played": int(match.get("rounds_played", 0)),
                 "target_score": int(match.get("target_score", 0)),

@@ -11,6 +11,8 @@ class GameRoom:
         self.players = [player1]
         self.shooter = shooter
         self.player_names = dict(player_names)
+        self.max_zones = 9
+        self.eliminated_zones: set[int] = set()
         self.moves: Dict[WebSocket, int] = {}
         self.score: Dict[WebSocket, int] = {player1: 0}
         self.saves: Dict[WebSocket, int] = {player1: 0}
@@ -29,6 +31,7 @@ class GameRoom:
         self.rematch_votes[websocket] = None
 
     def reset_for_rematch(self):
+        self.eliminated_zones = set()
         self.moves = {}
         self.score = {player: 0 for player in self.players}
         self.saves = {player: 0 for player in self.players}
@@ -47,6 +50,12 @@ class GameRoom:
     def get_role(self, websocket: WebSocket) -> str:
         return "shooter" if websocket == self.shooter else "goalkeeper"
 
+    def get_lives(self, websocket: WebSocket) -> int:
+        opponent = self.get_opponent(websocket)
+        if opponent is None:
+            return self.target_score
+        return max(0, self.target_score - self.score.get(opponent, 0))
+
     def get_player_name(self, websocket: Optional[WebSocket]) -> str:
         if websocket is None:
             return "Pending"
@@ -59,8 +68,11 @@ class GameRoom:
             "target_score": self.target_score,
             "your_score": self.score.get(websocket, 0),
             "opponent_score": self.score.get(opponent, 0) if opponent else 0,
+            "your_lives": self.get_lives(websocket),
+            "opponent_lives": self.get_lives(opponent) if opponent else self.target_score,
             "your_nickname": self.get_player_name(websocket),
             "opponent_nickname": self.get_player_name(opponent),
+            "eliminated_zones": sorted(self.eliminated_zones),
         }
 
     async def send_match_or_round_start(self, event_type: str):
@@ -94,8 +106,14 @@ class GameRoom:
         else:
             self.saves[goalkeeper_ws] = self.saves.get(goalkeeper_ws, 0) + 1
 
+        self.eliminated_zones.add(shooter_zone)
+        self.eliminated_zones.add(goalkeeper_zone)
+
+        next_shooter_ws = goalkeeper_ws
+
         for p in self.players:
             opponent = p1 if p == p2 else p2
+            next_role = "shooter" if p == next_shooter_ws else "goalkeeper"
             await p.send_json(
                 {
                     "type": "round_result",
@@ -104,38 +122,61 @@ class GameRoom:
                     "goalkeeper_zone": goalkeeper_zone,
                     "your_zone": self.moves[p],
                     "opponent_zone": self.moves[opponent],
+                    "next_role": next_role,
+                    "next_message": "ATTACK VECTOR (Hacker)" if next_role == "shooter" else "ICE PROTOCOL (Defender)",
                     **self.build_player_state(p),
                 }
             )
 
-        winner = next((player for player, points in self.score.items() if points >= self.target_score), None)
-        if winner:
+        p1_lives = self.get_lives(p1)
+        p2_lives = self.get_lives(p2)
+        board_exhausted = len(self.eliminated_zones) >= self.max_zones
+
+        winner: Optional[WebSocket] = None
+        is_draw = False
+        if p1_lives <= 0:
+            winner = p2
+        elif p2_lives <= 0:
+            winner = p1
+        elif board_exhausted:
+            if p1_lives > p2_lives:
+                winner = p1
+            elif p2_lives > p1_lives:
+                winner = p2
+            else:
+                is_draw = True
+
+        if winner or is_draw:
             self.game_over = True
             try:
-                await self.persist_match_result(winner)
+                await self.persist_match_result(winner, is_draw)
             except Exception:
                 # Gameplay should continue even if persistence is temporarily unavailable.
                 pass
             for player in self.players:
                 opponent = p1 if player == p2 else p2
+                result_value = "DRAW" if is_draw else ("WIN" if player == winner else "LOSE")
                 await player.send_json(
                     {
                         "type": "game_over",
-                        "result": "WIN" if player == winner else "LOSE",
-                        "winner": "you" if player == winner else "opponent",
+                        "result": result_value,
+                        "winner": "draw" if is_draw else ("you" if player == winner else "opponent"),
                         "your_score": self.score[player],
                         "opponent_score": self.score[opponent],
+                        "your_lives": self.get_lives(player),
+                        "opponent_lives": self.get_lives(opponent),
                         "target_score": self.target_score,
+                        "eliminated_zones": sorted(self.eliminated_zones),
                     }
                 )
         else:
-            self.shooter = goalkeeper_ws
+            self.shooter = next_shooter_ws
             self.round_number += 1
             await self.send_match_or_round_start("round_start")
 
         self.moves = {}
 
-    async def persist_match_result(self, winner: WebSocket):
+    async def persist_match_result(self, winner: Optional[WebSocket], is_draw: bool):
         if db_instance.db is None:
             return
 
@@ -144,12 +185,17 @@ class GameRoom:
 
         def player_snapshot(player: WebSocket, opponent: WebSocket) -> Dict[str, object]:
             display_name = self.get_player_name(player)
+            if is_draw:
+                result = "DRAW"
+            else:
+                result = "WIN" if player == winner else "LOSE"
             return {
                 "nickname": display_name.lower(),
                 "display_nickname": display_name,
-                "result": "WIN" if player == winner else "LOSE",
+                "result": result,
                 "score": self.score.get(player, 0),
                 "opponent_score": self.score.get(opponent, 0),
+                "lives": self.get_lives(player),
                 "saves": self.saves.get(player, 0),
                 "shots_taken": self.shots_taken.get(player, 0),
             }
@@ -163,9 +209,11 @@ class GameRoom:
                 "created_at": created_at,
                 "target_score": self.target_score,
                 "rounds_played": self.round_number,
+                "eliminated_zones": sorted(self.eliminated_zones),
                 "players": [p1_snapshot, p2_snapshot],
-                "winner_nickname": self.get_player_name(winner).lower(),
-                "winner_display_nickname": self.get_player_name(winner),
+                "winner_nickname": None if is_draw or winner is None else self.get_player_name(winner).lower(),
+                "winner_display_nickname": None if is_draw or winner is None else self.get_player_name(winner),
+                "is_draw": is_draw,
             }
         )
 
@@ -187,8 +235,10 @@ class GameRoom:
                         "games_played": 1,
                         "wins": 1 if snapshot["result"] == "WIN" else 0,
                         "losses": 1 if snapshot["result"] == "LOSE" else 0,
+                        "draws": 1 if snapshot["result"] == "DRAW" else 0,
                         "goals_scored": int(snapshot["score"]),
                         "goals_conceded": int(snapshot["opponent_score"]),
+                        "lives_remaining_total": int(snapshot["lives"]),
                         "saves": int(snapshot["saves"]),
                         "shots_taken": int(snapshot["shots_taken"]),
                     },
@@ -253,6 +303,10 @@ class ConnectionManager:
 
             if not isinstance(zone, int) or not 1 <= zone <= 9:
                 await websocket.send_json({"type": "info", "message": "Invalid node. Select firewall node 1-9."})
+                return
+
+            if zone in room.eliminated_zones:
+                await websocket.send_json({"type": "info", "message": "Node offline. Select another active firewall node."})
                 return
 
             room.moves[websocket] = zone

@@ -160,6 +160,12 @@
             animation: defenseWrongShake 420ms ease-in-out 2;
         }
 
+        .node-btn.drop-out {
+            animation: nodeDropOut 760ms cubic-bezier(0.18, 0.84, 0.2, 1) forwards;
+            transform-origin: center top;
+            pointer-events: none;
+        }
+
         @keyframes iceBlock {
             0% { box-shadow: 0 0 0 rgba(239, 68, 68, 0); background: rgba(8, 17, 34, 0.55); }
             40% { box-shadow: 0 0 18px rgba(239, 68, 68, 0.95); background: rgba(239, 68, 68, 0.35); }
@@ -184,6 +190,22 @@
             40% { transform: translateX(2px); }
             60% { transform: translateX(-2px); }
             80% { transform: translateX(2px); }
+        }
+
+        @keyframes nodeDropOut {
+            0% {
+                transform: translateY(0) rotateX(0deg) scale(1);
+                opacity: 1;
+                filter: saturate(1);
+            }
+            30% {
+                transform: translateY(4px) rotateX(12deg) scale(0.98);
+            }
+            100% {
+                transform: translateY(74px) rotateX(42deg) scale(0.8);
+                opacity: 0.12;
+                filter: saturate(0.7);
+            }
         }
 
         .data-packet {
@@ -503,6 +525,94 @@
             text-transform: uppercase;
         }
 
+        .game-outcome {
+            position: fixed;
+            inset: 0;
+            z-index: 170;
+            pointer-events: none;
+            opacity: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, rgba(6, 14, 25, 0.2), rgba(2, 6, 12, 0.75));
+        }
+
+        .game-outcome.show {
+            animation: outcomeFade 2200ms ease-out forwards;
+        }
+
+        .game-outcome-text {
+            font-size: clamp(2.1rem, 9vw, 5.2rem);
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            text-align: center;
+            padding: 0.4em 0.55em;
+            border-radius: 14px;
+            border: 2px solid transparent;
+            transform: scale(0.92);
+        }
+
+        .game-outcome.win .game-outcome-text {
+            color: #c6ffd8;
+            border-color: rgba(34, 197, 94, 0.78);
+            background: rgba(12, 36, 22, 0.6);
+            text-shadow: 0 0 20px rgba(34, 197, 94, 0.88), 0 0 46px rgba(34, 197, 94, 0.52);
+            box-shadow: 0 0 40px rgba(34, 197, 94, 0.28);
+        }
+
+        .game-outcome.lose .game-outcome-text {
+            color: #ffd4d4;
+            border-color: rgba(239, 68, 68, 0.78);
+            background: rgba(45, 14, 18, 0.62);
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.88), 0 0 46px rgba(239, 68, 68, 0.52);
+            box-shadow: 0 0 40px rgba(239, 68, 68, 0.28);
+        }
+
+        .game-outcome.draw .game-outcome-text {
+            color: #d8f3ff;
+            border-color: rgba(56, 189, 248, 0.82);
+            background: rgba(10, 28, 48, 0.62);
+            text-shadow: 0 0 20px rgba(56, 189, 248, 0.9), 0 0 46px rgba(56, 189, 248, 0.54);
+            box-shadow: 0 0 40px rgba(56, 189, 248, 0.28);
+        }
+
+        @keyframes outcomeFade {
+            0% {
+                opacity: 0;
+            }
+            12% {
+                opacity: 1;
+            }
+            24% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .game-outcome.show .game-outcome-text {
+            animation: outcomeScale 2200ms cubic-bezier(0.2, 0.86, 0.22, 1) forwards;
+        }
+
+        @keyframes outcomeScale {
+            0% {
+                transform: scale(0.84) translateY(10px);
+                filter: blur(3px);
+            }
+            15% {
+                transform: scale(1.06) translateY(0);
+                filter: blur(0);
+            }
+            70% {
+                transform: scale(1);
+            }
+            100% {
+                transform: scale(0.98) translateY(-8px);
+            }
+        }
+
         @media (max-width: 480px) {
             .intel-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -554,6 +664,7 @@
                 <div class="intel-cell"><div class="label">Games</div><div id="stat-games" class="value">0</div></div>
                 <div class="intel-cell"><div class="label">Wins</div><div id="stat-wins" class="value">0</div></div>
                 <div class="intel-cell"><div class="label">Losses</div><div id="stat-losses" class="value">0</div></div>
+                <div class="intel-cell"><div class="label">Draws</div><div id="stat-draws" class="value">0</div></div>
                 <div class="intel-cell"><div class="label">Win Rate</div><div id="stat-win-rate" class="value">0%</div></div>
                 <div class="intel-cell"><div class="label">Goals</div><div id="stat-goals" class="value">0</div></div>
                 <div class="intel-cell"><div class="label">Saves</div><div id="stat-saves" class="value">0</div></div>
@@ -592,6 +703,10 @@
     </div>
 
     <div id="round-banner" class="round-banner"></div>
+
+    <div id="game-outcome" class="game-outcome">
+        <div id="game-outcome-text" class="game-outcome-text">YOU WON</div>
+    </div>
 
     <div id="profile-overlay" class="profile-overlay hidden">
         <div class="profile-overlay-card">
@@ -633,6 +748,7 @@
         const statGames = document.getElementById('stat-games');
         const statWins = document.getElementById('stat-wins');
         const statLosses = document.getElementById('stat-losses');
+        const statDraws = document.getElementById('stat-draws');
         const statWinRate = document.getElementById('stat-win-rate');
         const statGoals = document.getElementById('stat-goals');
         const statSaves = document.getElementById('stat-saves');
@@ -647,6 +763,8 @@
         const rematchNo = document.getElementById('rematch-no');
         const arena = document.getElementById('tactical-arena');
         const roundBanner = document.getElementById('round-banner');
+        const gameOutcome = document.getElementById('game-outcome');
+        const gameOutcomeText = document.getElementById('game-outcome-text');
         const zoneButtons = Array.from(document.querySelectorAll('.node-btn'));
 
         let authMode = 'login';
@@ -694,6 +812,7 @@
             statGames.textContent = stats.games_played ?? 0;
             statWins.textContent = stats.wins ?? 0;
             statLosses.textContent = stats.losses ?? 0;
+            statDraws.textContent = stats.draws ?? 0;
             statWinRate.textContent = `${stats.win_rate ?? 0}%`;
             statGoals.textContent = stats.goals_scored ?? 0;
             statSaves.textContent = stats.saves ?? 0;
@@ -711,7 +830,7 @@
                 item.className = `history-item ${entry.result === 'WIN' ? 'win' : 'lose'}`;
 
                 const left = document.createElement('div');
-                left.textContent = `${entry.result} vs ${entry.opponent_nickname}`;
+                left.textContent = `${entry.result} vs ${entry.opponent_nickname} (${entry.your_lives}HP)`;
 
                 const right = document.createElement('div');
                 right.textContent = `${entry.your_score}:${entry.opponent_score}`;
@@ -791,6 +910,26 @@
             });
         }
 
+        function resetDroppedNodes() {
+            zoneButtons.forEach((btn) => {
+                btn.classList.remove('drop-out');
+            });
+        }
+
+        function syncDroppedZones(eliminatedZones) {
+            if (!Array.isArray(eliminatedZones)) {
+                return;
+            }
+
+            resetDroppedNodes();
+            eliminatedZones.forEach((zone) => {
+                const button = getZoneButton(zone);
+                if (button) {
+                    button.classList.add('drop-out');
+                }
+            });
+        }
+
         function getZoneButton(zone) {
             return zoneButtons.find((btn) => Number(btn.dataset.zone) === Number(zone));
         }
@@ -810,13 +949,34 @@
             roundBanner.classList.add('show');
         }
 
+        function showGameOutcome(result) {
+            let text = "YOU WON";
+            let stateClass = "win";
+
+            if (result === 'LOSE') {
+                text = "YOU LOST";
+                stateClass = "lose";
+            } else if (result === 'DRAW') {
+                text = "IT'S A DRAW";
+                stateClass = "draw";
+            }
+
+            gameOutcomeText.textContent = text;
+            gameOutcome.classList.remove('show', 'win', 'lose', 'draw');
+            gameOutcome.classList.add(stateClass);
+            void gameOutcome.offsetWidth;
+            gameOutcome.classList.add('show');
+        }
+
         function updateHud(data) {
             if (typeof data.round === 'number') {
                 roundDisplay.innerText = `Transmission Cycle: ${data.round}`;
             }
-            if (typeof data.your_score === 'number' && typeof data.opponent_score === 'number' && typeof data.target_score === 'number') {
-                const systemHealth = Math.max(0, data.target_score - data.opponent_score);
-                scoreDisplay.innerText = `Hacker Score: ${data.your_score} | System Health: ${systemHealth}`;
+            if (typeof data.your_lives === 'number' && typeof data.opponent_lives === 'number') {
+                scoreDisplay.innerText = `Your Lives: ${data.your_lives} | Rival Lives: ${data.opponent_lives}`;
+            } else if (typeof data.your_score === 'number' && typeof data.opponent_score === 'number' && typeof data.target_score === 'number') {
+                const fallbackLives = Math.max(0, data.target_score - data.opponent_score);
+                scoreDisplay.innerText = `Hacker Score: ${data.your_score} | System Health: ${fallbackLives}`;
             }
             if (typeof data.target_score === 'number') {
                 targetDisplay.innerText = `Target Breaches Required: ${data.target_score}`;
@@ -890,6 +1050,13 @@
             const defendButton = getZoneButton(goalkeeperZone);
             const shotButton = getZoneButton(shooterZone);
 
+            if (defendButton) {
+                defendButton.classList.add('drop-out');
+            }
+            if (shotButton && shotButton !== defendButton) {
+                shotButton.classList.add('drop-out');
+            }
+
             if (result === 'SAVED' && defendButton) {
                 defendButton.classList.add('defense-correct', 'ice-hit');
                 setTimeout(() => defendButton.classList.remove('ice-hit'), 900);
@@ -958,6 +1125,7 @@
                     gameUI.classList.remove('hidden');
                     isGameOver = false;
                     hideRematchPanel();
+                    syncDroppedZones(data.eliminated_zones);
                     setRole(data.role, data.message);
                     updateMatchup(data);
                     updateHud(data);
@@ -969,6 +1137,7 @@
 
                 if (data.type === 'round_result') {
                     const roleAtResult = currentRole;
+                    syncDroppedZones(data.eliminated_zones);
                     animateDataPacket(data.shooter_zone, data.result);
                     updateHud(data);
                     hasSubmittedMove = false;
@@ -989,12 +1158,17 @@
                         } else {
                             setStatus(`ICE PROTOCOL BLOCKED node ${data.goalkeeper_zone}. Defensive lock is GREEN.`, 'rgba(34, 197, 94, 0.78)');
                         }
+
+                        if (data.next_role && data.next_message) {
+                            setRole(data.next_role, data.next_message);
+                        }
                     }, 700);
                 }
 
                 if (data.type === 'round_start') {
                     setStatus('New cycle initialized. Deploy packet.', 'rgba(56, 189, 248, 0.6)');
                     hideRematchPanel();
+                    syncDroppedZones(data.eliminated_zones);
                     setRole(data.role, data.message);
                     updateMatchup(data);
                     updateHud(data);
@@ -1007,12 +1181,18 @@
                 if (data.type === 'game_over') {
                     isGameOver = true;
                     updateHud(data);
+                    syncDroppedZones(data.eliminated_zones);
                     setButtonsDisabled(true);
+                    showGameOutcome(data.result);
                     setStatus(
                         data.result === 'WIN'
-                            ? `SESSION SUCCESS. Final payload: ${data.your_score} - ${data.opponent_score}.`
-                            : `SESSION BREACHED. Final payload: ${data.your_score} - ${data.opponent_score}.`,
-                        data.result === 'WIN' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.75)'
+                            ? `SESSION SUCCESS. Lives left: ${data.your_lives}.`
+                            : (data.result === 'DRAW'
+                                ? `SESSION LOCKED. Draw state with ${data.your_lives} life each.`
+                                : `SESSION BREACHED. Lives left: ${data.your_lives}.`),
+                        data.result === 'WIN'
+                            ? 'rgba(34, 197, 94, 0.7)'
+                            : (data.result === 'DRAW' ? 'rgba(56, 189, 248, 0.7)' : 'rgba(239, 68, 68, 0.75)')
                     );
                     showRematchPanel('Session ended. Re-open channel with same rival node?', true);
                     setTimeout(() => {
